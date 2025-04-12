@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Stack, CircularProgress, Alert } from '@mui/material';
+import { CircularProgress, Alert, Box } from '@mui/material';
 import CurrentWeather from '../weather/CurrentWeather';
 import HourlyForecast from '../weather/HourlyForecast';
 import DailyForecast from '../weather/DailyForecast';
+import LocationSearch from '../weather/LocationSearch';
 import { 
   fetchCurrentWeather, 
   fetchHourlyForecast, 
@@ -25,75 +26,84 @@ const WeatherDashboard = () => {
     hourly: null,
     daily: null
   });
+  const [selectedLocation, setSelectedLocation] = useState({
+    lat: 40.7128,
+    lon: -74.0060,
+    name: 'New York'
+  });
+
+  const fetchWeatherData = async (lat, lon) => {
+    setLoading({
+      current: true,
+      hourly: true,
+      daily: true
+    });
+    setError({
+      current: null,
+      hourly: null,
+      daily: null
+    });
+
+    try {
+      const [current, hourly, daily] = await Promise.all([
+        fetchCurrentWeather(lat, lon),
+        fetchHourlyForecast(lat, lon),
+        fetchDailyForecast(lat, lon)
+      ]);
+      
+      setWeatherData({ current, hourly, daily });
+    } catch (err) {
+      setError(prev => ({ ...prev, weather: err.message }));
+    } finally {
+      setLoading({
+        current: false,
+        hourly: false,
+        daily: false
+      });
+    }
+  };
 
   useEffect(() => {
-    const fetchWeatherData = async () => {
-      const lat = 40.7128;
-      const lon = -74.0060;
+    fetchWeatherData(selectedLocation.lat, selectedLocation.lon);
+  }, [selectedLocation]);
 
-      try {
-        const current = await fetchCurrentWeather(lat, lon);
-        setWeatherData(prev => ({ ...prev, current }));
-      } catch (err) {
-        setError(prev => ({ ...prev, current: err.message }));
-      } finally {
-        setLoading(prev => ({ ...prev, current: false }));
-      }
-
-      try {
-        const hourly = await fetchHourlyForecast(lat, lon);
-        setWeatherData(prev => ({ ...prev, hourly }));
-      } catch (err) {
-        setError(prev => ({ ...prev, hourly: err.message }));
-      } finally {
-        setLoading(prev => ({ ...prev, hourly: false }));
-      }
-
-      try {
-        const daily = await fetchDailyForecast(lat, lon);
-        setWeatherData(prev => ({ ...prev, daily }));
-      } catch (err) {
-        setError(prev => ({ ...prev, daily: err.message }));
-      } finally {
-        setLoading(prev => ({ ...prev, daily: false }));
-      }
-    };
-
-    fetchWeatherData();
-  }, []);
+  const handleLocationSelect = (location) => {
+    setSelectedLocation(location);
+  };
 
   return (
-    <Stack spacing={3}>
-      <div>
-        {loading.current ? (
-          <CircularProgress />
-        ) : error.current ? (
-          <Alert severity="error">{error.current}</Alert>
-        ) : (
-          <CurrentWeather data={weatherData.current} />
-        )}
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box sx={{ width: '100%', maxWidth: 500, mx: 'auto', mb: 3 }}>
+        <LocationSearch onLocationSelect={handleLocationSelect} />
+      </Box>
 
-      <div>
-        {loading.hourly ? (
-          <CircularProgress />
-        ) : error.hourly ? (
-          <Alert severity="error">{error.hourly}</Alert>
-        ) : (
-          <HourlyForecast data={weatherData.hourly?.list} />
-        )}
-      </div>
+      {loading.current ? (
+        <CircularProgress />
+      ) : error.current ? (
+        <Alert severity="error">{error.current}</Alert>
+      ) : (
+        <CurrentWeather 
+          data={weatherData.current} 
+          locationName={selectedLocation.name}
+        />
+      )}
 
-      <div>
-        {loading.daily ? (
-          <CircularProgress />
-        ) : error.daily ? (
-          <Alert severity="error">{error.daily}</Alert>
-        ) : (
-          <DailyForecast data={weatherData.daily?.list} />
-        )}
-      </div>
-    </Stack>
+      {loading.hourly ? (
+        <CircularProgress />
+      ) : error.hourly ? (
+        <Alert severity="error">{error.hourly}</Alert>
+      ) : (
+        <HourlyForecast data={weatherData.hourly?.list} />
+      )}
+
+      {loading.daily ? (
+        <CircularProgress />
+      ) : error.daily ? (
+        <Alert severity="error">{error.daily}</Alert>
+      ) : (
+        <DailyForecast data={weatherData.daily?.list} />
+      )}
+    </Box>
   );
 };
 
